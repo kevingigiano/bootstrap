@@ -38,21 +38,21 @@ sudo sed -i "s/# %wheel/%wheel/g" /etc/sudoers
 # Set hostname
 sudo hostnamectl set-hostname cent9-devbox
 
-# get subnet
+# Get subnet
 subnet=`ip a | grep "inet " | tail -1 | awk '{print $2}'`
 
-# get router/gateway
+# Get router/gateway
 router=`ip route show | head -1 | awk '{print $3}'`
 
-# get size of network portion of address in bytes
+# Get size of network portion of address in bytes
 sz=`echo $subnet | awk -F / '{print $2}'`
 bytes=`expr $sz / 8`
 prefix=`echo $subnet | cut -d. -f1-$bytes`      # e.g., 192.168.0
 
-# get IP address to be set
+# Get IP address to be set
 IP=`hostname -I | awk '{print $1}'`             # current IP
 
-# fetch the UUID
+# Fetch the UUID
 UUID=`nmcli connection show | head -2 | tail -1 | awk '{print $4}'`
 
 echo "size:$sz"
@@ -76,7 +76,7 @@ if [ "$answer" = "N" ] || [ "$answer" = "n" ]  ;then
     exit 1
 fi
 
-# run commands to set up the permanent IP address
+# Run commands to set up the permanent IP address
 sudo nmcli connection modify $UUID IPv4.address $IP/$sz
 sudo nmcli connection modify $UUID IPv4.gateway $router
 sudo nmcli connection modify $UUID IPv4.method manual
@@ -185,6 +185,10 @@ if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
 else
     echo "Skipping k8s installs"
 fi
+
+# Install Python packeges
+sudo dnf install pip -y
+pip install cookiecutter
 
 # Copy and source bashrc
 cp $START_DIR/bashrc ~/.bashrc
