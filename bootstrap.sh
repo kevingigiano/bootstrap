@@ -92,6 +92,7 @@ if [ ! -d $INSTALL_DIR ] ;then
 fi
 
 # Install Docker
+echo "Installing Docker"
 sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
 sudo dnf list docker-ce
 sudo dnf install docker-ce --nobest -y
@@ -100,36 +101,89 @@ sudo systemctl start docker
 sudo groupadd docker
 sudo usermod -a -G docker $USER
 
+# Add Docker daemon file for Maven buils
+sudo sh -c 'echo -e "{\n  \"hosts\": [\n    \"tcp://0.0.0.0:2375\",\n    \"unix:///var/run/docker.sock\"\n  ]\n}" > /etc/docker/daemon.json'
+
+# Open port for Docker endpoint
+echo "Fixing Docker endpoint"
+sudo mkdir -p /etc/systemd/system/docker.service.d
+sudo sh -c 'echo -e "[Service]\nExecStart=\nExecStart=/usr/bin/dockerd" > /etc/systemd/system/docker.service.d/options.conf'
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+
 # Install docker autocomplete
+echo "Installing Docker autocomplete"
 sudo curl https://raw.githubusercontent.com/docker/docker-ce/master/components/cli/contrib/completion/bash/docker -o /etc/bash_completion.d/docker.sh
 
 # Install yq
+echo "Installing YQ"
 BINARY=yq_linux_amd64 
 LATEST=$(wget -qO- https://api.github.com/repos/mikefarah/yq/releases/latest 2>/dev/null | grep browser_download_url | grep $BINARY\"\$|awk '{print $NF}' )
 sudo wget -q $LATEST -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
 
 # Install Git
+echo "Installing Git"
 sudo dnf install git -y
 
 # Install Python3 Network Tools
 sudo dnf install python3-ethtool -y
 
 # Install VSCode
+echo "Installing VS Code"
 sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
 sudo sh -c 'echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo'
 dnf check-update
 sudo dnf install code -y
 
 # Install Google Chrome
-sudo bash -c 'cat > /etc/yum.repos.d/google-chrome.repo <<EOF
-dgoogle-chrome]
-name=google-chrome
-baseurl=http://dl.google.com/linux/chrome/rpm/stable/x86_64
-enabled=1
-gpgcheck=1
-gpgkey=https://dl.google.com/linux/linux_signing_key.pub
-EOF'
+echo "Installing Chrome"
+sudo sh -c 'echo -e "[google-chrome]\nname=google-chrome\nbaseurl=http://dl.google.com/linux/chrome/rpm/stable/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://dl.google.com/linux/linux_signing_key.pub" > /etc/yum.repos.d/google-chrome.repo'
 sudo dnf install google-chrome-stable -y
+
+# Install any custom certificates
+printf 'Install custom certificates (y/n)? '
+if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
+    answer=$AUTO
+else
+    read answer
+fi
+if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
+    CERT_DIR="$INSTALL_DIR/certs"
+    if [ ! -d $CERT_DIR ] ;then
+        mkdir $CERT_DIR
+    fi
+    printf "Place your certs in $INSTALL_DIR/certs and press return "
+    if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
+    answer=$AUTO
+    else
+        read answer
+    fi
+    sudo cp $CERT_DIR/* /etc/pki/ca-trust/source/anchors/
+    sudo update-ca-trust extract
+fi
+
+# Fix GNOME
+printf 'Do you want to fix GNOME (y/n)? '
+if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
+    answer=$AUTO
+else
+    read answer
+fi
+if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
+    # Remove GDM
+    echo "Installing XFCE + LightDM"
+    sudo dnf install epel-release -y
+    sudo dnf groupinstall base-x -y
+    sudo dnf groupinstall xfce-desktop -y
+    sudo dnf install lightdm -y
+    sudo systemctl enable lightdm
+    sudo systemctl start lightdm
+
+    echo "Removing GNOME"
+    sudo dnf remove gdm -y
+    sudo dnf remove xdg-desktop-portal-gtk -y
+    sudo dnf remove xdg-desktop-portal -y
+fi
 
 printf 'Do you want to install k8s apps (y/n)? '
 if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
@@ -137,33 +191,27 @@ if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n
 else
     read answer
 fi
-
-
 if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
+
     echo "Installing k8s apps"
-    
+
     # Install Helm
+    echo "Installing helm"
     cd $INSTALL_DIR
     if [ ! -d helm ] ;then
         mkdir helm
     fi
-    cd helm
-    wget https://get.helm.sh/helm-v3.12.0-linux-amd64.tar.gz
-    tar xzvf helm-v3.12.0-linux-amd64.tar.gz
-    sudo cp linux-amd64/helm /usr/local/bin
-    
+    curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    chmod +x get_helm.sh
+    sudo get_helm.sh
+
     # Install Kubectl
-    cd $INSTALL_DIR
-    if [ ! -d kubectl ] ;then
-        mkdir kubectl
-    fi
-    cd kubectl
-    wget https://dl.k8s.io/v1.27.0/kubernetes-client-linux-amd64.tar.gz
-    tar xzvf kubernetes-client-linux-amd64.tar.gz
-    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-    sudo install -o root -g root -m 0755 kubernetes/client/bin/kubectl /usr/local/bin/kubectl
-    
+    echo "Installing kubectl"
+    sudo sh -c 'echo -e "[kubernetes]\nname=Kubernetes\nbaseurl=https://pkgs.k8s.io/core:/stable:/v1.30/rpm/\nenabled=1\ngpgcheck=1\ngpgkey=https://pkgs.k8s.io/core:/stable:/v1.30/rpm/repodata/repomd.xml.key" > /etc/yum.repos.d/kubernetes.repo'
+    sudo dnf install -y kubectl
+
     # Install Minikube
+    echo "Installing minikube"
     cd $INSTALL_DIR
     if [ ! -d minikube ] ;then
         mkdir minikube
@@ -172,7 +220,8 @@ if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
     curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
     sudo install minikube-linux-amd64 /usr/local/bin/minikube
     
-    # Install ArgoCD CLI
+    # Install ArgoCD CLI"
+    echo "Installing ArgoCD CLI"
     cd $INSTALL_DIR
     if [ ! -d argocd ] ;then
         mkdir argocd
@@ -187,12 +236,49 @@ else
 fi
 
 # Install Python packeges
+echo "Installing Python Stuff"
 sudo dnf install pip -y
 pip install cookiecutter
 
+# Install Maven
+echo "Installing Maven "
+sudo dnf install maven -y
+
+# Install Azure CLI
+echo "Installing Azure CLI"
+sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+sudo dnf install -y https://packages.microsoft.com/config/rhel/8/packages-microsoft-prod.rpm
+sudo dnf install azure-cli -y
+
 # Copy and source bashrc
-cp $START_DIR/bashrc ~/.bashrc
-source ~/.bashrc
+printf 'Update and overwrite bashrc (y/n)? '
+if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
+    answer=$AUTO
+else
+    read answer
+fi
+if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
+    cp $START_DIR/bashrc ~/.bashrc
+    source ~/.bashrc
+fi
+
+# Update /etc/resolv.conf
+printf 'Add nameserver to /etc/resolve.conf and make readonly (y/n)? '
+if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
+    answer=$AUTO
+else
+    read answer
+fi
+if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
+    printf 'Enter nameserver and hit enter '
+    if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
+        answer=172.16.2.20
+    else
+        read answer
+    fi
+    echo "nameserver $answer" | cat - /etc/resolv.conf > temp && sudo mv temp /etc/resolv.conf
+    sudo chattr +i -f /etc/resolv.conf
+fi
 
 printf 'Docker will not work right until your reboot.  Reboot (y/n)? '
 read answer
