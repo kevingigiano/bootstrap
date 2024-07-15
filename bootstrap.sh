@@ -91,6 +91,11 @@ if [ ! -d $INSTALL_DIR ] ;then
     mkdir $INSTALL_DIR
 fi
 
+# JAVA 17
+echo "Installing Docker"
+sudo dnf install java-17-openjdk java-17-openjdk-devel -y
+
+
 # Install Docker
 echo "Installing Docker"
 sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo

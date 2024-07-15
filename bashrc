@@ -18,6 +18,8 @@ export DOCKER_HOST=tcp://localhost:2375
 export JAVA_HOME=/etc/alternatives/jre_17
 export DB_CERT_PATH=~/ATLAS/db-certs
 export KAFKA_CERT_PATH=~/ATLAS/broker-certs
+export JAVA_HOME=$(dirname $(dirname $(readlink $(readlink $(which java)))))
+export PATH=$PATH:$JAVA_HOME/bin
 
 # ALIASES
 
