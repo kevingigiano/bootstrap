@@ -176,18 +176,13 @@ else
 fi
 if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
     # Remove GDM
-    echo "Installing XFCE + LightDM"
+    echo "Installing KDE"
     sudo dnf install epel-release -y
-    sudo dnf groupinstall base-x -y
-    sudo dnf groupinstall xfce-desktop -y
-    sudo dnf install lightdm -y
-    sudo systemctl enable lightdm
-    sudo systemctl start lightdm
+    sudo dnf config-manager --set-enabled crb
+    sudo dnf -y groupinstall "KDE Plasma Workspaces" "base-x"
 
-    echo "Removing GNOME"
-    sudo dnf remove gdm -y
-    sudo dnf remove xdg-desktop-portal-gtk -y
-    sudo dnf remove xdg-desktop-portal -y
+    echo "Removing portal"
+    sudo dnf remove xdg-desktop-portal-kde -y
 fi
 
 printf 'Do you want to install k8s apps (y/n)? '
