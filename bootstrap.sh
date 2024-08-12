@@ -122,9 +122,7 @@ sudo curl https://raw.githubusercontent.com/docker/docker-ce/master/components/c
 
 # Install yq
 echo "Installing YQ"
-BINARY=yq_linux_amd64 
-LATEST=$(wget -qO- https://api.github.com/repos/mikefarah/yq/releases/latest 2>/dev/null | grep browser_download_url | grep $BINARY\"\$|awk '{print $NF}' )
-sudo wget -q $LATEST -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
+sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
 
 # Install Git
 echo "Installing Git"
