@@ -201,7 +201,7 @@ if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
     fi
     curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
     chmod +x get_helm.sh
-    sudo get_helm.sh
+    sudo ./get_helm.sh
 
     # Install Kubectl
     echo "Installing kubectl"
@@ -247,6 +247,7 @@ echo "Installing Azure CLI"
 sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
 sudo dnf install -y https://packages.microsoft.com/config/rhel/8/packages-microsoft-prod.rpm
 sudo dnf install azure-cli -y
+sudo az aks install-cli -y
 
 # Copy and source bashrc
 printf 'Update and overwrite bashrc (y/n)? '
