@@ -7,6 +7,8 @@ Setup all the things I need for a local development box (CentOS).
 
 2) Make boostrap.sh executable (chmod +x)
 
-3) Run script
+3) (optional) create a local file (~/.creds) for storing credentials you want to source for all sessions.
+
+4) Run script
 
     $ ./bootstrap.sh
