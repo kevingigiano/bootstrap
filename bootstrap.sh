@@ -3,7 +3,7 @@
 # 07-22-2023
 #
 # This script will bootstrap my local developemnt environment.
-# RHEL8+ or CentOS8+ 
+# RHEL9+ or CentOS9+ 
 
 function usage() {
   echo ""
