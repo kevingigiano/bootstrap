@@ -5,6 +5,24 @@
 # This script will bootstrap my local developemnt environment.
 # RHEL9+ or CentOS9+ 
 
+COLOR_NC='\033[0m' # No Color
+COLOR_BLACK='\033[0;30m'
+COLOR_GRAY='\033[1;30m'
+COLOR_RED='\033[0;31m'
+COLOR_LIGHT_RED='\033[1;31m'
+COLOR_GREEN='\033[0;32m'
+COLOR_LIGHT_GREEN='\033[1;32m'
+COLOR_BROWN='\033[0;33m'
+COLOR_YELLOW='\033[1;33m'
+COLOR_BLUE='\033[0;34m'
+COLOR_LIGHT_BLUE='\033[1;34m'
+COLOR_PURPLE='\033[0;35m'
+COLOR_LIGHT_PURPLE='\033[1;35m'
+COLOR_CYAN='\033[0;36m'
+COLOR_LIGHT_CYAN='\033[1;36m'
+COLOR_LIGHT_GRAY='\033[0;37m'
+COLOR_WHITE='\033[1;37m'
+
 function usage() {
   echo ""
   echo "usage: $0"
@@ -19,17 +37,45 @@ while getopts a:h option; do
     a) AUTO="${OPTARG}";;
     h) usage;;
     *) usage
-      exit 1;;
   esac
 done
 
-START_DIR=`pwd`
+START_DIR=$(pwd)
 INSTALL_DIR="$HOME/install"
 DEV_DIR="$HOME/git"
 
 # Create dev directory
-if [ ! -d $DEV_DIR ] ;then
-    mkdir $DEV_DIR
+if [ ! -d "$DEV_DIR" ] ;then
+    mkdir "$DEV_DIR"
+fi
+
+
+CERT_DIR="$INSTALL_DIR/certs"
+if [ ! -d "$CERT_DIR" ] ;then
+    mkdir "$CERT_DIR"
+fi
+
+echo -e "Some networks man-in-the-middled you and requires special certificates installed.\n
+Place any special certificates in the following directory:${COLOR_YELLOW} $CERT_DIR ${COLOR_NC}now so installs don't fail due to certificate errors"
+echo "Done with special certificates?"
+read -r answer
+
+# Install any custom certificates
+printf 'Install custom certificates (y/n)? '
+if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
+    answer=$AUTO
+else
+    read -r answer
+fi
+if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
+    printf "Place your certs in %s/certs and press return, $INSTALL_DIR"
+    if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
+    answer=$AUTO
+    else
+        read -r answer
+    fi
+    sudo cp "$CERT_DIR"/* /etc/pki/ca-trust/source/anchors/
+    sudo update-ca-trust extract
 fi
 
 # Add user to sudoers
@@ -39,21 +85,21 @@ sudo sed -i "s/# %wheel/%wheel/g" /etc/sudoers
 sudo hostnamectl set-hostname cent9-devbox
 
 # Get subnet
-subnet=`ip a | grep "inet " | tail -1 | awk '{print $2}'`
+subnet=$(ip a | grep "inet " | tail -1 | awk '{print $2}')
 
 # Get router/gateway
-router=`ip route show | head -1 | awk '{print $3}'`
+router=$(ip route show | head -1 | awk '{print $3}')
 
 # Get size of network portion of address in bytes
-sz=`echo $subnet | awk -F / '{print $2}'`
-bytes=`expr $sz / 8`
-prefix=`echo $subnet | cut -d. -f1-$bytes`      # e.g., 192.168.0
+sz=$(echo "$subnet" | awk -F / '{print $2}')
+bytes=$(("$sz" / 8))
+prefix=$(echo "$subnet" | cut -d. -f1-"$bytes")      # e.g., 192.168.0
 
 # Get IP address to be set
-IP=`hostname -I | awk '{print $1}'`             # current IP
+IP=$(hostname -I | awk '{print $1}')             # current IP
 
 # Fetch the UUID
-UUID=`nmcli connection show | head -2 | tail -1 | awk '{print $4}'`
+UUID=$(nmcli connection show | head -2 | tail -1 | awk '{print $4}')
 
 echo "size:$sz"
 echo "bytes:$bytes"
@@ -68,7 +114,7 @@ printf 'IP settings look good (y/n)? '
 if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
     answer=$AUTO
 else
-    read answer
+    read -r answer
 fi
 
 if [ "$answer" = "N" ] || [ "$answer" = "n" ]  ;then 
@@ -77,18 +123,18 @@ if [ "$answer" = "N" ] || [ "$answer" = "n" ]  ;then
 fi
 
 # Run commands to set up the permanent IP address
-sudo nmcli connection modify $UUID IPv4.address $IP/$sz
-sudo nmcli connection modify $UUID IPv4.gateway $router
-sudo nmcli connection modify $UUID IPv4.method manual
-sudo nmcli connection modify $UUID ipv4.dns $router
-sudo nmcli connection up $UUID
+sudo nmcli connection modify "$UUID" IPv4.address "$IP"/"$sz"
+sudo nmcli connection modify "$UUID" IPv4.gateway "$router"
+sudo nmcli connection modify "$UUID" IPv4.method manual
+sudo nmcli connection modify "$UUID" ipv4.dns "$router"
+sudo nmcli connection up "$UUID"
 
 # Check for upgrades & updates
 sudo dnf upgrade -y && sudo dnf update -y
 
 # Create install directory
-if [ ! -d $INSTALL_DIR ] ;then
-    mkdir $INSTALL_DIR
+if [ ! -d "$INSTALL_DIR" ] ;then
+    mkdir "$INSTALL_DIR"
 fi
 
 # JAVA 17
@@ -104,7 +150,7 @@ sudo dnf install docker-ce --nobest -y
 sudo systemctl enable docker
 sudo systemctl start docker
 sudo groupadd docker
-sudo usermod -a -G docker $USER
+sudo usermod -a -G docker "$USER"
 
 # Add Docker daemon file for Maven buils
 sudo sh -c 'echo -e "{\n  \"hosts\": [\n    \"tcp://0.0.0.0:2375\",\n    \"unix:///var/run/docker.sock\"\n  ]\n}" > /etc/docker/daemon.json'
@@ -143,34 +189,12 @@ echo "Installing Chrome"
 sudo sh -c 'echo -e "[google-chrome]\nname=google-chrome\nbaseurl=http://dl.google.com/linux/chrome/rpm/stable/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://dl.google.com/linux/linux_signing_key.pub" > /etc/yum.repos.d/google-chrome.repo'
 sudo dnf install google-chrome-stable -y
 
-# Install any custom certificates
-printf 'Install custom certificates (y/n)? '
-if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
-    answer=$AUTO
-else
-    read answer
-fi
-if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
-    CERT_DIR="$INSTALL_DIR/certs"
-    if [ ! -d $CERT_DIR ] ;then
-        mkdir $CERT_DIR
-    fi
-    printf "Place your certs in $INSTALL_DIR/certs and press return "
-    if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
-    answer=$AUTO
-    else
-        read answer
-    fi
-    sudo cp $CERT_DIR/* /etc/pki/ca-trust/source/anchors/
-    sudo update-ca-trust extract
-fi
-
 # Fix GNOME
 printf 'Do you want to fix GNOME (y/n)? '
 if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
     answer=$AUTO
 else
-    read answer
+    read -r answer
 fi
 if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
     # Remove GDM
@@ -187,7 +211,7 @@ printf 'Do you want to install k8s apps (y/n)? '
 if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
     answer=$AUTO
 else
-    read answer
+    read -r answer
 fi
 if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
 
@@ -195,7 +219,7 @@ if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
 
     # Install Helm
     echo "Installing helm"
-    cd $INSTALL_DIR
+    cd "$INSTALL_DIR" || exit
     if [ ! -d helm ] ;then
         mkdir helm
     fi
@@ -210,21 +234,21 @@ if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
 
     # Install Minikube
     echo "Installing minikube"
-    cd $INSTALL_DIR
+    cd "$INSTALL_DIR" || exit
     if [ ! -d minikube ] ;then
         mkdir minikube
     fi
-    cd minikube
+    cd minikube || exit
     curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
     sudo install minikube-linux-amd64 /usr/local/bin/minikube
     
     # Install ArgoCD CLI"
     echo "Installing ArgoCD CLI"
-    cd $INSTALL_DIR
+    cd "$INSTALL_DIR" || exit
     if [ ! -d argocd ] ;then
         mkdir argocd
     fi
-    cd argocd
+    cd argocd || exit
     curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
     sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
     rm argocd-linux-amd64
@@ -254,10 +278,10 @@ printf 'Update and overwrite bashrc (y/n)? '
 if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
     answer=$AUTO
 else
-    read answer
+    read -r answer
 fi
 if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
-    cp $START_DIR/bashrc ~/.bashrc
+    cp "$START_DIR"/bashrc ~/.bashrc
     source ~/.bashrc
 fi
 
@@ -266,21 +290,21 @@ printf 'Add nameserver to /etc/resolve.conf and make readonly (y/n)? '
 if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
     answer=$AUTO
 else
-    read answer
+    read -r answer
 fi
 if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
     printf 'Enter nameserver and hit enter '
     if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
         answer=172.16.2.20
     else
-        read answer
+        read -r answer
     fi
     echo "nameserver $answer" | cat - /etc/resolv.conf > temp && sudo mv temp /etc/resolv.conf
     sudo chattr +i -f /etc/resolv.conf
 fi
 
 printf 'Docker will not work right until your reboot.  Reboot (y/n)? '
-read answer
+read -r answer
 
 if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
     echo "Rebooting"
