@@ -141,6 +141,11 @@ fi
 echo "Installing Docker"
 sudo dnf install java-17-openjdk java-17-openjdk-devel -y
 
+# Install Parallels
+echo "Installed parallel"
+sudo dnf install parallel -y
+mkdir ~/.parallel
+touch ~/.parallel/will-cite
 
 # Install Docker
 echo "Installing Docker"
