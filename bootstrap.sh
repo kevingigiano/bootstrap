@@ -1,9 +1,11 @@
 #!/bin/bash
 # Kevin Gigiano
-# 07-22-2023
+# 11-22-2025
 #
-# This script will bootstrap my local developemnt environment.
+# This script will bootstrap my local developments environment.
 # RHEL9+ or CentOS9+ 
+
+HOSTNAME=cent9-devbox
 
 COLOR_NC='\033[0m' # No Color
 COLOR_BLACK='\033[0;30m'
@@ -23,33 +25,63 @@ COLOR_LIGHT_CYAN='\033[1;36m'
 COLOR_LIGHT_GRAY='\033[0;37m'
 COLOR_WHITE='\033[1;37m'
 
-function usage() {
-  echo ""
-  echo "usage: $0"
-  echo "    -a (OPTIONAL) automode; supply n,N,y,Y"
-  echo "    -h Show this message"
-  echo ""
+function show_help() {
+  echo -e """
+  ----------------------------------------------------------------
+  ${COLOR_LIGHT_GREEN}Cent9/RHEL9 Bootstrap script${COLOR_NC}
+
+  This is a handy script for bootstrapping your local development environment.
+  After standing up a dedicated VMWare virtual machine, I run this script to configure it with all the stuff I need.
+
+  Perquisites:
+  \t1)  Add this script to a folder called 'install' in your home directory (~/install).
+  \t2)  If you need to add environment specific certificates (corporate Man-In-The-Middle), 
+  \t      create a certs folder in the install directory  (~/install/certs).
+
+  Usage:
+      --auto (OPTIONAL): Answer 'Yes' to all questions
+      --help Show this message
+  ----------------------------------------------------------------
+  """
   exit 1
 }
 
-while getopts a:h option; do
-  case "${option}" in
-    a) AUTO="${OPTARG}";;
-    h) usage;;
-    *) usage
+while [[ ${1} ]]; do
+  case "${1}" in
+      --help | -h)
+        show_help
+          exit 0
+          ;;
+      --auto)
+          AUTO="Y"
+          ;;
+      *)
+          echo "Unknown parameter: ${1}" >&2
+          exit 1
+          ;;
   esac
+
+  if ! shift; then
+      echo 'Missing parameter argument.' >&2
+      exit 1
+  fi
 done
 
 START_DIR=$(pwd)
 INSTALL_DIR="$HOME/install"
 DEV_DIR="$HOME/git"
 
+# Create install directory
+if [ ! -d "$INSTALL_DIR" ] ;then
+    mkdir "$INSTALL_DIR"
+fi
+
 # Create dev directory
 if [ ! -d "$DEV_DIR" ] ;then
     mkdir "$DEV_DIR"
 fi
 
-
+# Create cert directory
 CERT_DIR="$INSTALL_DIR/certs"
 if [ ! -d "$CERT_DIR" ] ;then
     mkdir "$CERT_DIR"
@@ -58,19 +90,21 @@ fi
 echo -e "Some networks man-in-the-middled you and requires special certificates installed.\n
 Place any special certificates in the following directory:${COLOR_YELLOW} $CERT_DIR ${COLOR_NC}now so installs don't fail due to certificate errors"
 echo "Done with special certificates?"
-read -r answer
+if [ "$AUTO" != "Y" ] ;then
+    read -r answer
+fi
 
 # Install any custom certificates
 printf 'Install custom certificates (y/n)? '
-if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
+if [ "$AUTO" = "Y" ] ;then
     answer=$AUTO
 else
     read -r answer
 fi
 if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
     printf "Place your certs in %s/certs and press return, $INSTALL_DIR"
-    if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
-    answer=$AUTO
+    if [ "$AUTO" = "Y" ] ;then
+        answer=$AUTO
     else
         read -r answer
     fi
@@ -82,7 +116,7 @@ fi
 sudo sed -i "s/# %wheel/%wheel/g" /etc/sudoers
 
 # Set hostname
-sudo hostnamectl set-hostname cent9-devbox
+sudo hostnamectl set-hostname $HOSTNAME
 
 # Get subnet
 subnet=$(ip a | grep "inet " | tail -1 | awk '{print $2}')
@@ -111,7 +145,7 @@ echo "dns:$router"
 echo "UUID:$UUID"
 
 printf 'IP settings look good (y/n)? '
-if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
+if [ "$AUTO" = "Y" ] ;then
     answer=$AUTO
 else
     read -r answer
@@ -130,12 +164,11 @@ sudo nmcli connection modify "$UUID" ipv4.dns "$router"
 sudo nmcli connection up "$UUID"
 
 # Check for upgrades & updates
+sudo dnf config-manager --set-enabled crb
 sudo dnf upgrade -y && sudo dnf update -y
 
-# Create install directory
-if [ ! -d "$INSTALL_DIR" ] ;then
-    mkdir "$INSTALL_DIR"
-fi
+# Install EPEL
+sudo dnf install epel-release -y
 
 # JAVA 17
 echo "Installing Docker"
@@ -157,7 +190,7 @@ sudo systemctl start docker
 sudo groupadd docker
 sudo usermod -a -G docker "$USER"
 
-# Add Docker daemon file for Maven buils
+# Add Docker daemon file for Maven builds
 sudo sh -c 'echo -e "{\n  \"hosts\": [\n    \"tcp://0.0.0.0:2375\",\n    \"unix:///var/run/docker.sock\"\n  ]\n}" > /etc/docker/daemon.json'
 
 # Open port for Docker endpoint
@@ -183,37 +216,40 @@ sudo dnf install git -y
 sudo dnf install python3-ethtool -y
 
 # Install VSCode
-echo "Installing VS Code"
+echo "Installing VSCode"
 sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
 sudo sh -c 'echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo'
-dnf check-update
 sudo dnf install code -y
+
+# Install shell check
+echo "ShellCheck for VSCode"
+sudo dnf install ShellCheck -y
+
+# Add VSCode settings, including fix (window.titleBarStyle) for window moving issue for VS Code
+echo "Creating settings for VSCode"
+mkdir -p ~/.config/Code/User
+echo -n '{
+  "workbench.startupEditor": "none",
+  "editor.emptySelectionClipboard": false,
+  "editor.copyWithSyntaxHighlighting": false,
+  "editor.selectionClipboard": false,
+  "redhat.telemetry.enabled": false,
+  "files.autoSave": "afterDelay",
+  "chat.commandCenter.enabled": false,
+  "workbench.layoutControl.enabled": false,
+  "window.commandCenter": false,
+  "editor.tabSize": 2,
+  "java.import.projectSelection": "manual",
+  "window.titleBarStyle": "native"
+}' > ~/.config/Code/User/settings.json
 
 # Install Google Chrome
 echo "Installing Chrome"
 sudo sh -c 'echo -e "[google-chrome]\nname=google-chrome\nbaseurl=http://dl.google.com/linux/chrome/rpm/stable/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://dl.google.com/linux/linux_signing_key.pub" > /etc/yum.repos.d/google-chrome.repo'
 sudo dnf install google-chrome-stable -y
 
-# Fix GNOME
-printf 'Do you want to fix GNOME (y/n)? '
-if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
-    answer=$AUTO
-else
-    read -r answer
-fi
-if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
-    # Remove GDM
-    echo "Installing KDE"
-    sudo dnf install epel-release -y
-    sudo dnf config-manager --set-enabled crb
-    sudo dnf -y groupinstall "KDE Plasma Workspaces" "base-x"
-
-    echo "Removing portal"
-    sudo dnf remove xdg-desktop-portal-kde -y
-fi
-
 printf 'Do you want to install k8s apps (y/n)? '
-if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
+if [ "$AUTO" = "Y" ] ;then
     answer=$AUTO
 else
     read -r answer
@@ -247,22 +283,11 @@ if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
     curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
     sudo install minikube-linux-amd64 /usr/local/bin/minikube
     
-    # Install ArgoCD CLI"
-    echo "Installing ArgoCD CLI"
-    cd "$INSTALL_DIR" || exit
-    if [ ! -d argocd ] ;then
-        mkdir argocd
-    fi
-    cd argocd || exit
-    curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-    sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
-    rm argocd-linux-amd64
-    
 else
     echo "Skipping k8s installs"
 fi
 
-# Install Python packeges
+# Install Python packages
 echo "Installing Python Stuff"
 sudo dnf install pip -y
 pip install cookiecutter
@@ -276,11 +301,11 @@ echo "Installing Azure CLI"
 sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
 sudo dnf install -y https://packages.microsoft.com/config/rhel/8/packages-microsoft-prod.rpm
 sudo dnf install azure-cli -y
-sudo az aks install-cli -y
+sudo az aks install-cli
 
 # Copy and source bashrc
 printf 'Update and overwrite bashrc (y/n)? '
-if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
+if [ "$AUTO" = "Y" ] ;then
     answer=$AUTO
 else
     read -r answer
@@ -292,14 +317,14 @@ fi
 
 # Update /etc/resolv.conf
 printf 'Add nameserver to /etc/resolve.conf and make readonly (y/n)? '
-if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
+if [ "$AUTO" = "Y" ] ;then
     answer=$AUTO
 else
     read -r answer
 fi
 if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
     printf 'Enter nameserver and hit enter '
-    if [ "$AUTO" = "Y" ] || [ "$AUTO" = "y" ] || [ "$AUTO" = "N" ] || [ "$AUTO" = "n" ] ;then
+    if [ "$AUTO" = "Y" ] ;then
         answer=172.16.2.20
     else
         read -r answer
@@ -307,6 +332,31 @@ if [ "$answer" = "Y" ] || [ "$answer" = "y" ]  ;then
     echo "nameserver $answer" | cat - /etc/resolv.conf > temp && sudo mv temp /etc/resolv.conf
     sudo chattr +i -f /etc/resolv.conf
 fi
+
+
+# Fix CentOS/VMware share mount issue
+echo "[Unit]
+Description=VMware mount for hgfs
+DefaultDependencies=no
+Before=umount.target
+ConditionVirtualization=vmware
+After=sys-fs-fuse-connections.mount
+
+[Mount]
+What=vmhgfs-fuse
+Where=/mnt/hgfs
+Type=fuse
+Options=default_permissions,allow_other
+
+[Install]
+WantedBy=multi-user.target" | sudo tee /etc/systemd/system/mnt-hgfs.mount
+
+sudo echo "fuse" | sudo tee /etc/modules-load.d/open-vm-tools.conf
+
+sudo systemctl enable mnt-hgfs.mount
+sudo modprobe -v fuse
+sudo systemctl start mnt-hgfs.mount
+# Fix CentOS/VMware share mount issue
 
 printf 'Docker will not work right until your reboot.  Reboot (y/n)? '
 read -r answer
