@@ -346,7 +346,9 @@ After=sys-fs-fuse-connections.mount
 What=vmhgfs-fuse
 Where=/mnt/hgfs
 Type=fuse
-Options=default_permissions,allow_other
+# HGFS provides a fake view of UNIX permissions.
+# Ensure they show up as 600 for certificate handling
+Options=allow_other,umask=177
 
 [Install]
 WantedBy=multi-user.target" | sudo tee /etc/systemd/system/mnt-hgfs.mount
