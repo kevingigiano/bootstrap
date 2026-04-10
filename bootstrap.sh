@@ -171,8 +171,8 @@ sudo dnf upgrade -y && sudo dnf update -y
 sudo dnf install epel-release -y
 
 # JAVA 17
-echo "Installing Docker"
-sudo dnf install java-17-openjdk java-17-openjdk-devel -y
+echo "Installing Java"
+sudo dnf install java-21-openjdk java-21-openjdk-devel -y
 
 # Install Parallels
 echo "Installed parallel"
@@ -247,6 +247,24 @@ echo -n '{
 echo "Installing Chrome"
 sudo sh -c 'echo -e "[google-chrome]\nname=google-chrome\nbaseurl=http://dl.google.com/linux/chrome/rpm/stable/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://dl.google.com/linux/linux_signing_key.pub" > /etc/yum.repos.d/google-chrome.repo'
 sudo dnf install google-chrome-stable -y
+
+# Install Python for TAF
+echo "Installing Python and pyenv"
+sudo dnf groupinstall -y "Development Tools" 
+sudo dnf install -y sqlite-devel ncurses-devel readline-devel tk-devel bzip2-devel libffi-devel openssl-devel xz-devel zlib-devel xdotool chromedriver
+curl https://pyenv.run | bash
+# Add pyenv to bashrc if not already there
+
+grep -q 'pyenv init - bash' ~/.bashrc || cat <<'EOF' >> ~/.bashrc
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init - bash)"
+eval "$(pyenv virtualenv-init -)"
+EOF
+
+echo "Installing Python 3.10.11 with pyenv"
+source ~/.bashrc
+pyenv install 3.10.11
 
 printf 'Do you want to install k8s apps (y/n)? '
 if [ "$AUTO" = "Y" ] ;then

@@ -14,7 +14,7 @@ fi
 # EXPORTS
 export PATH
 export DOCKER_HOST=tcp://localhost:2375
-export JAVA_HOME=/etc/alternatives/jre_17
+export JAVA_HOME=/usr/lib/jvm/jre-21-openjdk
 export DB_CERT_PATH=~/ATLAS/db-certs
 export KAFKA_CERT_PATH=~/ATLAS/broker-certs
 export JAVA_HOME=$(dirname $(dirname $(readlink $(readlink $(which java)))))
