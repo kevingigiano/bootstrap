@@ -87,6 +87,12 @@ if [ ! -d "$CERT_DIR" ] ;then
     mkdir "$CERT_DIR"
 fi
 
+# If someone drops a zip file in cert directory, unzip contents into cert directory
+find "$CERT_DIR" -type f -name "*.zip" | while read -r zipfile; do
+  dir="$(dirname "$zipfile")"
+  unzip -o "$zipfile" -d "$dir"
+done
+
 echo -e "Some networks man-in-the-middled you and requires special certificates installed.\n
 Place any special certificates in the following directory:${COLOR_YELLOW} $CERT_DIR ${COLOR_NC}now so installs don't fail due to certificate errors"
 echo "Done with special certificates?"
