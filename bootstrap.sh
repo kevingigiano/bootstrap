@@ -246,7 +246,9 @@ echo -n '{
   "window.commandCenter": false,
   "editor.tabSize": 2,
   "java.import.projectSelection": "manual",
-  "window.titleBarStyle": "native"
+  "window.titleBarStyle": "native",
+  "window.dialogStyle": "custom",
+  "files.simpleDialog.enable":true
 }' > ~/.config/Code/User/settings.json
 
 # Install Google Chrome
