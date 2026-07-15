@@ -386,8 +386,8 @@ sudo modprobe -v fuse
 sudo systemctl start mnt-hgfs.mount
 # Fix CentOS/VMware share mount issue
 
-# Add root cronjob that runs daily to do automatic updates
-sudo bash -c '(crontab -l 2>/dev/null | grep -v "dnf update" ; echo "0 2 * * * dnf update -y >> /var/log/dnf-update.log 2>&1") | crontab -'
+# Add #root cronjob that runs daily to do automatic updates
+#sudo #bash -c '(crontab -l 2>/dev/null | grep -v "dnf update" ; echo "0 2 * * * dnf update -y >> /var/log/dnf-update.log 2>&1") | crontab -'
 
 printf 'Docker will not work right until your reboot.  Reboot (y/n)? '
 read -r answer
