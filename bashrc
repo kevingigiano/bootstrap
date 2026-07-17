@@ -81,8 +81,16 @@ alias ccert="openssl x509 -text -noout -in $1"
 alias frep="find | grep $1"
 alias cls=clear
 alias ll="ls -la"
+alias ls="ls -la"
+
 # Cluster login
 alias aks-login='~/aks-login.sh'
+alias src="source ~/.bashrc"
+
+# History stuff
+export HISTSIZE=50000
+export HISTFILESIZE=10000
+export HISTCONTROL=ignoredups
 
 # all reverse search
 stty -ixon
@@ -92,7 +100,6 @@ stty -ixon
 source <(kubectl completion bash | sed s/kubectl/k/g)
 source <(helm completion bash)
 source <(minikube completion bash)
-source <(argocd completion bash)
 # handy file for pulling in credentials
 source ~/.creds
 
